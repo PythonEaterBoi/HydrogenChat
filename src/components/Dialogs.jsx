@@ -34,8 +34,10 @@ const thinkingOptions = [
   { value: 'xhigh', label: 'Extra deep', description: 'Most thorough reasoning' },
 ];
 
-export function SettingsDialog({ apiKey, serverConfigured, thinkingLevel, onSave, onClose }) {
+export function SettingsDialog({ apiKey, rememberKey, model, thinkingLevel, onSave, onClose }) {
   const [key, setKey] = useState(apiKey);
+  const [remember, setRemember] = useState(rememberKey);
+  const [modelId, setModelId] = useState(model);
   const [level, setLevel] = useState(thinkingLevel);
   const [showKey, setShowKey] = useState(false);
 
@@ -45,16 +47,19 @@ export function SettingsDialog({ apiKey, serverConfigured, thinkingLevel, onSave
       <h2 id="settings-title">Make this space yours.</h2>
       <p className="modal-subtitle">A few small preferences for better conversations.</p>
 
-      <form onSubmit={(event) => { event.preventDefault(); onSave({ apiKey: key.trim(), thinkingLevel: level }); }}>
+      <form onSubmit={(event) => { event.preventDefault(); onSave({ apiKey: key.trim(), rememberKey: remember, model: modelId.trim(), thinkingLevel: level }); }}>
         <div className="settings-section">
           <div className="settings-section-title"><KeyRound size={17} /><span>Gemini connection</span></div>
-          {serverConfigured && <div className="server-connected"><span className="status-dot" /> A server API key is already connected. Your own key is optional.</div>}
-          <label className="field-label" htmlFor="api-key">Your API key {serverConfigured && <span>(optional)</span>}</label>
+          <label className="field-label" htmlFor="api-key">Your API key</label>
           <div className="key-field">
             <input id="api-key" type={showKey ? 'text' : 'password'} autoComplete="off" spellCheck="false" placeholder="Paste your Gemini API key" value={key} onChange={(event) => setKey(event.target.value)} />
             <button type="button" onClick={() => setShowKey(!showKey)} aria-label={showKey ? 'Hide API key' : 'Show API key'}>{showKey ? <EyeOff size={17} /> : <Eye size={17} />}</button>
           </div>
-          <p className="field-help">Kept only in this browser tab. It’s sent to this server for Gemini requests, never saved with your chats. <a href="https://aistudio.google.com/apikey" target="_blank" rel="noopener noreferrer">Get a key <ArrowUpRight size={13} /></a></p>
+          <label className="remember-row"><input type="checkbox" checked={remember} onChange={(event) => setRemember(event.target.checked)} /> <span>Remember on this device</span></label>
+          <p className="field-help">Your key stays in this browser and is sent only to Google’s Gemini API — never to any other server. By default it is forgotten when you close the tab. <a href="https://aistudio.google.com/apikey" target="_blank" rel="noopener noreferrer">Get a key <ArrowUpRight size={13} /></a></p>
+          <label className="field-label model-label" htmlFor="model-id">Model ID</label>
+          <div className="key-field"><input id="model-id" type="text" autoComplete="off" spellCheck="false" placeholder="gemini-4-hydrogen" value={modelId} onChange={(event) => setModelId(event.target.value)} /></div>
+          <p className="field-help">Leave as <code>gemini-4-hydrogen</code> unless your key uses a different model name.</p>
         </div>
 
         <div className="settings-section thinking-section">

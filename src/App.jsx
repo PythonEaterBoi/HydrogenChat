@@ -5,10 +5,10 @@ import { Welcome } from './components/Welcome.jsx';
 import { Composer } from './components/Composer.jsx';
 import { Message } from './components/Message.jsx';
 import { DeleteDialog, SearchDialog, SettingsDialog } from './components/Dialogs.jsx';
-import { streamReply } from './lib/stream.js';
+import { DEFAULT_MODEL, streamReply } from './lib/stream.js';
 import {
-  downloadChat, loadActiveId, loadChats, loadSessionKey, loadThinkingLevel,
-  makeTitle, saveActiveId, saveChats, saveSessionKey, saveThinkingLevel,
+  downloadChat, isKeyRemembered, loadActiveId, loadChats, loadModel, loadSessionKey, loadThinkingLevel,
+  makeTitle, saveActiveId, saveChats, saveModel, saveSessionKey, saveThinkingLevel,
 } from './lib/storage.js';
 
 const thinkingLabels = { low: 'Quick', medium: 'Balanced', high: 'Deep', xhigh: 'Extra deep' };
@@ -37,7 +37,8 @@ export default function App() {
   const [activeId, setActiveId] = useState(loadActiveId);
   const [draft, setDraft] = useState('');
   const [apiKey, setApiKey] = useState(loadSessionKey);
-  const [serverConfigured, setServerConfigured] = useState(false);
+  const [rememberKey, setRememberKey] = useState(isKeyRemembered);
+  const [model, setModel] = useState(loadModel);
   const [thinkingLevel, setThinkingLevel] = useState(loadThinkingLevel);
   const [streamingChatId, setStreamingChatId] = useState(null);
   const [sidebarOpen, setSidebarOpen] = useState(false);
@@ -54,14 +55,9 @@ export default function App() {
   const controllerRef = useRef(null);
   const modelMenuRef = useRef(null);
   const activeChat = chats.find((chat) => chat.id === activeId);
-  const connected = Boolean(apiKey || serverConfigured);
+  const connected = Boolean(apiKey);
   const isStreaming = Boolean(streamingChatId);
 
-  useEffect(() => {
-    fetch('/api/config').then((response) => response.json()).then((config) => {
-      setServerConfigured(Boolean(config.configured));
-    }).catch(() => { /* The chat request will show a useful error if the server is unavailable. */ });
-  }, []);
   useEffect(() => {
     const timeout = setTimeout(() => saveChats(chats), 200);
     return () => clearTimeout(timeout);
@@ -130,6 +126,7 @@ export default function App() {
         messages: history,
         thinkingLevel,
         apiKey,
+        model,
         signal: controller.signal,
         onDelta: (text) => {
           responseText += text;
@@ -194,11 +191,12 @@ export default function App() {
     setActiveId(chatId); setDraft(''); setSidebarOpen(false); setSearchOpen(false); setModelMenuOpen(false);
   }
 
-  function saveSettings({ apiKey: key, thinkingLevel: level }) {
-    setApiKey(key); saveSessionKey(key);
+  function saveSettings({ apiKey: key, rememberKey: remember, model: modelId, thinkingLevel: level }) {
+    setApiKey(key); setRememberKey(Boolean(key && remember)); saveSessionKey(key, remember);
+    setModel(modelId || DEFAULT_MODEL); saveModel(modelId || DEFAULT_MODEL);
     setThinkingLevel(level); saveThinkingLevel(level);
     setSettingsOpen(false);
-    setToast({ message: key || serverConfigured ? 'Preferences saved. You’re ready to chat.' : 'Preferences saved. Add an API key to start chatting.' });
+    setToast({ message: key ? 'Preferences saved. You’re ready to chat.' : 'Preferences saved. Add an API key to start chatting.' });
   }
 
   async function copyText(text) {
@@ -238,11 +236,11 @@ export default function App() {
             {activeChat && <button className="icon-button export-button" type="button" onClick={() => { downloadChat(activeChat); setToast({ message: 'Conversation exported as Markdown.' }); }} aria-label="Export conversation" title="Export as Markdown"><Download size={18} /></button>}
             <div className="model-control" ref={modelMenuRef}>
               <button className={`model-pill ${modelMenuOpen ? 'is-active' : ''}`} type="button" onClick={() => setModelMenuOpen((value) => !value)} aria-haspopup="menu" aria-expanded={modelMenuOpen}>
-                <Sparkles size={16} strokeWidth={1.8} /><span>Gemini 4 Hydrogen</span><ChevronDown size={15} />
+                <Sparkles size={16} strokeWidth={1.8} /><span>{model === DEFAULT_MODEL ? 'Gemini 4 Hydrogen' : model}</span><ChevronDown size={15} />
               </button>
               {modelMenuOpen && (
                 <div className="model-popover" role="menu">
-                  <div className="model-popover-top"><span className="model-popover-icon"><Sparkles size={18} /></span><div><strong>Gemini 4 Hydrogen</strong><small>Thoughtful answers, at your pace.</small></div><Check size={16} className="model-check" /></div>
+                  <div className="model-popover-top"><span className="model-popover-icon"><Sparkles size={18} /></span><div><strong>{model === DEFAULT_MODEL ? 'Gemini 4 Hydrogen' : model}</strong><small>Thoughtful answers, at your pace.</small></div><Check size={16} className="model-check" /></div>
                   <div className="popover-divider" />
                   <div className="popover-label">THINKING LEVEL</div>
                   {Object.entries(thinkingLabels).map(([value, label]) => <button className="popover-option" type="button" role="menuitemradio" aria-checked={thinkingLevel === value} key={value} onClick={() => { setThinkingLevel(value); saveThinkingLevel(value); setModelMenuOpen(false); }}><span>{label}</span>{thinkingLevel === value && <Check size={16} />}</button>)}
@@ -273,7 +271,7 @@ export default function App() {
       </main>
 
       {searchOpen && <SearchDialog chats={chats} onSelect={selectChat} onClose={() => setSearchOpen(false)} />}
-      {settingsOpen && <SettingsDialog apiKey={apiKey} serverConfigured={serverConfigured} thinkingLevel={thinkingLevel} onSave={saveSettings} onClose={() => setSettingsOpen(false)} />}
+      {settingsOpen && <SettingsDialog apiKey={apiKey} rememberKey={rememberKey} model={model} thinkingLevel={thinkingLevel} onSave={saveSettings} onClose={() => setSettingsOpen(false)} />}
       {deleteId && <DeleteDialog title={chats.find((chat) => chat.id === deleteId)?.title || 'This conversation'} onConfirm={confirmDelete} onClose={() => setDeleteId(null)} />}
       {toast && <div className="toast" role="status"><span className="toast-icon"><Check size={15} /></span><span>{toast.message}</span><button type="button" onClick={() => setToast(null)} aria-label="Dismiss notification"><X size={16} /></button></div>}
     </div>

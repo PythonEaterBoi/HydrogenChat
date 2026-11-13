@@ -4,16 +4,14 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "dev": "node server/index.js",
+    "dev": "vite",
     "build": "vite build",
-    "start": "NODE_ENV=production node server/index.js",
+    "preview": "vite preview",
     "test": "vitest run"
   },
   "dependencies": {
     "@fontsource-variable/dm-sans": "^5.2.8",
     "@fontsource-variable/newsreader": "^5.2.8",
-    "dotenv": "^16.6.1",
-    "express": "^4.21.2",
     "lucide-react": "^0.468.0",
     "react": "^19.1.0",
     "react-dom": "^19.1.0",
@@ -26,7 +24,6 @@
     "@testing-library/user-event": "^14.6.10",
     "@vitejs/plugin-react": "^4.7.0",
     "jsdom": "^26.1.0",
-    "supertest": "^7.1.1",
     "vite": "^6.3.6",
     "vitest": "^5.1.0"
   }

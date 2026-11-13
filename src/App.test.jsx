@@ -5,7 +5,7 @@ import '@testing-library/jest-dom/vitest';
 import App from './App.jsx';
 
 function streamedResponse(text) {
-  const bytes = new TextEncoder().encode(`data: ${JSON.stringify({ type: 'delta', text })}\n\ndata: {"type":"done"}\n\n`);
+  const bytes = new TextEncoder().encode(`data: ${JSON.stringify({ candidates: [{ content: { parts: [{ text }] }, finishReason: 'STOP' }] })}\n\n`);
   return {
     ok: true,
     body: new ReadableStream({ start(controller) { controller.enqueue(bytes); controller.close(); } }),
@@ -15,9 +15,7 @@ function streamedResponse(text) {
 beforeEach(() => {
   localStorage.clear(); sessionStorage.clear();
   vi.stubGlobal('requestAnimationFrame', (callback) => setTimeout(callback, 0));
-  vi.stubGlobal('fetch', vi.fn(async (url) => url === '/api/config'
-    ? { json: async () => ({ model: 'gemini-4-hydrogen', configured: false }) }
-    : streamedResponse('Hello from Gemini!')));
+  vi.stubGlobal('fetch', vi.fn(async () => streamedResponse('Hello from Gemini!')));
 });
 afterEach(() => { cleanup(); vi.unstubAllGlobals(); });
 
@@ -35,9 +33,11 @@ describe('chat interface', () => {
 
     await waitFor(() => expect(screen.getByText('Hello from Gemini!')).toBeInTheDocument());
     expect(sessionStorage.getItem('hydrogen.session-key.v1')).toBe('my-session-key');
-    const post = fetch.mock.calls.find(([url]) => url === '/api/chat');
-    expect(post[1].headers['x-gemini-api-key']).toBe('my-session-key');
-    expect(JSON.parse(post[1].body).messages[0].content).toContain('thoughtful');
+    expect(localStorage.getItem('hydrogen.remembered-key.v1')).toBeNull();
+    const post = fetch.mock.calls[0];
+    expect(post[0]).toContain('generativelanguage.googleapis.com/v1beta/models/gemini-4-hydrogen:streamGenerateContent');
+    expect(post[1].headers['x-goog-api-key']).toBe('my-session-key');
+    expect(JSON.parse(post[1].body).contents[0].parts[0].text).toContain('thoughtful');
   });
 
   it('opens settings and search from the sidebar', async () => {
@@ -77,20 +77,36 @@ describe('chat interface', () => {
   it('keeps the prompt and offers retry when Gemini rejects a request', async () => {
     sessionStorage.setItem('hydrogen.session-key.v1', 'wrong-key');
     let attempts = 0;
-    vi.stubGlobal('fetch', vi.fn(async (url) => {
-      if (url === '/api/config') return { json: async () => ({ configured: false }) };
+    vi.stubGlobal('fetch', vi.fn(async () => {
       attempts++;
       return attempts === 1
-        ? { ok: false, status: 403, json: async () => ({ error: 'That API key was not accepted.' }) }
+        ? { ok: false, status: 403, json: async () => ({ error: { message: 'denied' } }) }
         : streamedResponse('It works now.');
     }));
     render(<App />);
     fireEvent.change(screen.getByRole('textbox', { name: 'Message Hydrogen' }), { target: { value: 'Tell me a story' } });
     fireEvent.click(screen.getByRole('button', { name: 'Send message' }));
-    await waitFor(() => expect(screen.getByText('That API key was not accepted.')).toBeInTheDocument());
+    await waitFor(() => expect(screen.getByText(/API key was not accepted/)).toBeInTheDocument());
     expect(document.querySelector('.user-bubble')).toHaveTextContent('Tell me a story');
     fireEvent.click(screen.getByRole('button', { name: 'Try again' }));
     await waitFor(() => expect(screen.getByText('It works now.')).toBeInTheDocument());
     expect(attempts).toBe(2);
+  });
+
+  it('can remember the key on this device and use a custom model ID', async () => {
+    render(<App />);
+    fireEvent.click(screen.getByRole('button', { name: /Personal workspace/ }));
+    fireEvent.change(screen.getByLabelText('Your API key'), { target: { value: 'kept-key' } });
+    fireEvent.click(screen.getByLabelText('Remember on this device'));
+    fireEvent.change(screen.getByLabelText('Model ID'), { target: { value: 'my-model' } });
+    fireEvent.click(screen.getByRole('button', { name: /Save preferences/ }));
+    expect(localStorage.getItem('hydrogen.remembered-key.v1')).toBe('kept-key');
+    expect(sessionStorage.getItem('hydrogen.session-key.v1')).toBeNull();
+
+    fireEvent.change(screen.getByRole('textbox', { name: 'Message Hydrogen' }), { target: { value: 'Hi' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Send message' }));
+    await waitFor(() => expect(screen.getByText('Hello from Gemini!')).toBeInTheDocument());
+    expect(fetch.mock.calls[0][0]).toContain('/models/my-model:streamGenerateContent');
+    expect(fetch.mock.calls[0][1].headers['x-goog-api-key']).toBe('kept-key');
   });
 });

@@ -1,7 +1,11 @@
+import { DEFAULT_MODEL } from './stream.js';
+
 const CHATS_KEY = 'hydrogen.chats.v1';
 const ACTIVE_KEY = 'hydrogen.active.v1';
 const THINKING_KEY = 'hydrogen.thinking.v1';
 const API_KEY = 'hydrogen.session-key.v1';
+const REMEMBERED_KEY = 'hydrogen.remembered-key.v1';
+const MODEL_KEY = 'hydrogen.model.v1';
 const LEVELS = ['low', 'medium', 'high', 'xhigh'];
 
 export function loadChats() {
@@ -54,14 +58,32 @@ export function saveThinkingLevel(value) {
   try { localStorage.setItem(THINKING_KEY, value); } catch { /* storage unavailable */ }
 }
 
+// The API key lives in session storage (this tab only) unless the person opts in
+// to remembering it on this device, in which case it moves to local storage.
 export function loadSessionKey() {
-  try { return sessionStorage.getItem(API_KEY) || ''; } catch { return ''; }
+  try { return localStorage.getItem(REMEMBERED_KEY) || sessionStorage.getItem(API_KEY) || ''; } catch { return ''; }
 }
 
-export function saveSessionKey(value) {
+export function isKeyRemembered() {
+  try { return Boolean(localStorage.getItem(REMEMBERED_KEY)); } catch { return false; }
+}
+
+export function saveSessionKey(value, remember = false) {
   try {
-    if (value) sessionStorage.setItem(API_KEY, value);
-    else sessionStorage.removeItem(API_KEY);
+    sessionStorage.removeItem(API_KEY);
+    localStorage.removeItem(REMEMBERED_KEY);
+    if (value) (remember ? localStorage : sessionStorage).setItem(remember ? REMEMBERED_KEY : API_KEY, value);
+  } catch { /* storage unavailable */ }
+}
+
+export function loadModel() {
+  try { return localStorage.getItem(MODEL_KEY) || DEFAULT_MODEL; } catch { return DEFAULT_MODEL; }
+}
+
+export function saveModel(value) {
+  try {
+    if (value && value !== DEFAULT_MODEL) localStorage.setItem(MODEL_KEY, value);
+    else localStorage.removeItem(MODEL_KEY);
   } catch { /* storage unavailable */ }
 }
 

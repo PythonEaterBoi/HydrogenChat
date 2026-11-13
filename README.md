@@ -1,23 +1,36 @@
 # Hydrogen Chat
 
-A warm, distraction-free chat space powered by **Gemini 4 Hydrogen**. Built with React, Vite, and a small Express server that streams responses from Google's Gemini API.
+A warm, distraction-free chat space powered by **Gemini 4 Hydrogen**. It is a fully static React + Vite app: the browser talks directly to Google's Gemini API, so it can be hosted on GitHub Pages with no server.
+
+## Publish on GitHub Pages
+
+1. Merge this code into `main`.
+2. In the repository, open **Settings → Pages** and set **Source** to **GitHub Actions**.
+3. Push to `main` (or run the **Deploy to GitHub Pages** workflow manually). The workflow in `.github/workflows/deploy.yml` tests, builds, and publishes the site.
+
+The site will be live at `https://<username>.github.io/HydrogenChat/`. Asset paths are relative, so it also works on a custom domain without changes.
+
+## Using the app
+
+Open **Settings** and paste a Gemini API key from [Google AI Studio](https://aistudio.google.com/apikey). Each visitor uses their own key:
+
+- The key is stored only in the visitor's browser and sent only to Google's Gemini API.
+- By default it is forgotten when the tab closes; tick **Remember on this device** to keep it.
+- Never put a key in the source code — everything in a GitHub Pages site is public.
+
+The default model ID is `gemini-4-hydrogen`. If your key uses a different model name, change **Model ID** in Settings.
 
 ## Run locally
 
-Requires Node.js 22.12+ (including the test runner).
+Requires Node.js 22.12+.
 
 ```bash
 npm install
-cp .env.example .env
-# Add your GEMINI_API_KEY to .env (optional if you prefer to enter it in the app)
-npm run dev
+npm run dev        # http://localhost:5173
+npm test
+npm run build      # outputs the static site to dist/
+npm run preview    # serves the built site
 ```
-
-Open [http://localhost:5173](http://localhost:5173). For a production build, run `npm run build && npm start`.
-
-Get an API key from [Google AI Studio](https://aistudio.google.com/apikey). If you don't set `GEMINI_API_KEY` on the server, open **Settings** in the app and paste a key there. Keys entered in the app live in **session storage for that browser tab only**; they are sent to this server over the same-origin `/api/chat` request, then to Google. Never put a key in frontend source code or a `VITE_` environment variable. Use HTTPS in production.
-
-The default model ID is `gemini-4-hydrogen`. You can override it with `GEMINI_MODEL` if your Gemini provider uses a different ID. The Gemini API must be available to your server; this sandbox may not allow outbound requests to Google, so live responses require running it in an environment with Google API access.
 
 ## Features
 
@@ -25,13 +38,6 @@ The default model ID is `gemini-4-hydrogen`. You can override it with `GEMINI_MO
 - Quick, balanced, deep, and extra-deep thinking levels
 - Locally saved conversations, search, rename, delete, and Markdown export
 - Keyboard shortcuts: `Enter` to send, `Shift+Enter` for a new line, `⌘/Ctrl+K` to search, `⌘/Ctrl+O` for a new chat
-- Responsive layout with a collapsible sidebar and an API-key connection flow
+- Responsive layout with a collapsible sidebar
 
-Conversations are saved in your browser's local storage; no chat database is used. Clearing your browser data removes them. If a server API key is configured, anyone who can reach the app can use it; add your own authentication and rate limiting before exposing a keyed deployment publicly.
-
-## Checks
-
-```bash
-npm test
-npm run build
-```
+Conversations are saved in your browser's local storage; clearing your browser data removes them.
